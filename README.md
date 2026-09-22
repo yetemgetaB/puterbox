@@ -1,9 +1,12 @@
 # 🧰 PuterBox — The Chaotic Swiss Army Knife of Free Web & AI Tools
 
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-puterbox.puter.site-teal?style=for-the-badge&logo=google-chrome&logoColor=white)](https://puterbox.puter.site)
 [![Powered by Puter.js](https://img.shields.io/badge/Powered%20by-Puter.js-6366f1?style=for-the-badge&logo=cloud&logoColor=white)](https://developer.puter.com)
 [![Infrastructure](https://img.shields.io/badge/Server%20Bill-%240.00-emerald?style=for-the-badge)](https://docs.puter.com/user-pays-model/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-purple.svg?style=for-the-badge)](LICENSE)
 
+> 🚀 **Live Demo**: [https://puterbox.puter.site](https://puterbox.puter.site)
+>
 > *"What is this project? Honestly, I have no idea. Just a chaotic, ridiculously useful collection of free AI & browser tools built with Puter.js because paying \$20/month for random micro-utilities is a scam."*
 
 ---
