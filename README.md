@@ -52,8 +52,8 @@ Puter.js requires an HTTP origin (not `file://`):
 
 ```bash
 # 1. Clone this repo
-git clone https://github.com/yetemgetaB/fieldlog-ai.git
-cd fieldlog-ai
+git clone https://github.com/yetemgetaB/puterbox.git
+cd puterbox
 
 # 2. Run any simple web server
 python -m http.server 8080
