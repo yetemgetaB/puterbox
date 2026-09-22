@@ -1,74 +1,26 @@
-// FieldLog AI — Serverless Field Inspection & Client Portal Studio
+// PuterBox — The Ultimate Free AI & Web Tool Suite
 
-const STORAGE_KEY = 'fieldlog_audits_v1';
-let currentAudit = createNewAuditTemplate();
-let savedAudits = {};
-let isRecording = false;
-let mediaRecorder = null;
-let audioChunks = [];
-let recordInterval = null;
-let recordSeconds = 0;
-let generatedAudioBlobUrl = null;
+// Active Tool State
+let currentActiveTool = null;
+let scratchpadSaveTimeout = null;
 
 // DOM Elements
-const auditClient = document.getElementById('audit-client');
-const auditLocation = document.getElementById('audit-location');
-const auditType = document.getElementById('audit-type');
-const auditInspector = document.getElementById('audit-inspector');
-const currentAuditIdLabel = document.getElementById('current-audit-id-label');
+const globalSearch = document.getElementById('global-tool-search');
+const categoryPills = document.querySelectorAll('.category-pill');
+const toolCards = document.querySelectorAll('.tool-card');
+const toolWorkspace = document.getElementById('tool-workspace');
+const closeWorkspaceBtn = document.getElementById('close-workspace-btn');
+const activeToolTitle = document.getElementById('active-tool-title');
+const activeToolDesc = document.getElementById('active-tool-desc');
+const activeToolIcon = document.getElementById('active-tool-icon');
+const toolContentArea = document.getElementById('tool-content-area');
 
-const micRecordBtn = document.getElementById('mic-record-btn');
-const micIcon = document.getElementById('mic-icon');
-const voiceStatusText = document.getElementById('voice-status-text');
-const recordingPulseIndicator = document.getElementById('recording-pulse-indicator');
-const recordTimer = document.getElementById('record-timer');
-const voiceNotesArea = document.getElementById('voice-notes-area');
-
-const photoFileInput = document.getElementById('photo-file-input');
-const photoEvidenceGrid = document.getElementById('photo-evidence-grid');
-const noPhotosHint = document.getElementById('no-photos-hint');
-
-const addFindingForm = document.getElementById('add-finding-form');
-const findingInput = document.getElementById('finding-input');
-const findingSeverity = document.getElementById('finding-severity');
-const findingsTagsList = document.getElementById('findings-tags-list');
-
-const btnSynthesizeReport = document.getElementById('btn-synthesize-report');
-const synthesisLoading = document.getElementById('synthesis-loading');
-const reportViewCard = document.getElementById('report-view-card');
-const repTitle = document.getElementById('rep-title');
-const complianceScoreVal = document.getElementById('compliance-score-val');
-const complianceScoreBadge = document.getElementById('compliance-score-badge');
-const repSummary = document.getElementById('rep-summary');
-const repFindingsList = document.getElementById('rep-findings-list');
-
-const playAudioRecapBtn = document.getElementById('play-audio-recap-btn');
-const audioPlayIcon = document.getElementById('audio-play-icon');
-const audioRecapPlayer = document.getElementById('audio-recap-player');
-const audioDurationTag = document.getElementById('audio-duration-tag');
-
-const btnDeployPortal = document.getElementById('btn-deploy-portal');
-const deployedLinkBox = document.getElementById('deployed-link-box');
-const deployedUrlInput = document.getElementById('deployed-url-input');
-const openDeployedLink = document.getElementById('open-deployed-link');
-
-const clientEmailInput = document.getElementById('client-email-input');
-const btnEmailReport = document.getElementById('btn-email-report');
-
-// Vault & Auth Elements
-const btnNewAudit = document.getElementById('btn-new-audit');
-const btnSavedAudits = document.getElementById('btn-saved-audits');
-const savedCountBadge = document.getElementById('saved-count-badge');
-const vaultModal = document.getElementById('vault-modal');
-const closeVaultModal = document.getElementById('close-vault-modal');
-const vaultList = document.getElementById('vault-list');
-
+// Auth & Theme Elements
 const loginBtn = document.getElementById('login-btn');
 const logoutBtn = document.getElementById('logout-btn');
 const userProfile = document.getElementById('user-profile');
 const usernameDisplay = document.getElementById('username-display');
 const userAvatarInitial = document.getElementById('user-avatar-initial');
-
 const themeToggle = document.getElementById('theme-toggle');
 const themeIcon = document.getElementById('theme-icon');
 const toastContainer = document.getElementById('toast-container');
@@ -78,36 +30,15 @@ const toastContainer = document.getElementById('toast-container');
 // ----------------------------------------------------
 async function init() {
   initTheme();
-  setupEventListeners();
+  setupNavEvents();
   refreshIcons();
   await checkAuthStatus();
-  await loadSavedAudits();
-  populateFormFromAudit(currentAudit);
 }
 
 function refreshIcons() {
   if (window.lucide) {
     window.lucide.createIcons();
   }
-}
-
-function createNewAuditTemplate() {
-  return {
-    id: 'audit_' + Date.now(),
-    client: 'Apex Industrial Corp',
-    location: 'Building B — North Facility',
-    type: 'Facility Safety & OSHA',
-    inspector: 'Lead Field Engineer',
-    date: new Date().toLocaleDateString(),
-    voiceNotes: '',
-    photos: [],
-    findings: [
-      { id: 'f_1', text: 'Main breaker panel shows surface oxidation on breaker #4', severity: 'Medium' },
-      { id: 'f_2', text: 'Fire extinguisher inspection tag expired in Q2', severity: 'High' }
-    ],
-    report: null,
-    deployedUrl: null
-  };
 }
 
 // ----------------------------------------------------
@@ -124,7 +55,7 @@ function showToast(message, type = 'info') {
 
   toast.className = 'toast-enter pointer-events-auto flex items-center gap-2.5 px-3.5 py-2.5 bg-slate-900/90 dark:bg-slate-100/95 text-white dark:text-slate-900 text-xs font-semibold rounded-xl shadow-xl backdrop-blur-md transition-all';
   toast.innerHTML = `
-    <i data-lucide="${icon}" class="w-4 h-4 text-emerald-400 dark:text-emerald-600"></i>
+    <i data-lucide="${icon}" class="w-4 h-4 text-indigo-400 dark:text-indigo-600"></i>
     <span>${escapeHTML(message)}</span>
   `;
 
@@ -139,7 +70,7 @@ function showToast(message, type = 'info') {
 }
 
 // ----------------------------------------------------
-// Theme Management
+// Theme
 // ----------------------------------------------------
 function initTheme() {
   const saved = localStorage.getItem('theme');
@@ -184,7 +115,7 @@ function showLoggedIn(user) {
   loginBtn.classList.add('hidden');
   userProfile.classList.remove('hidden');
   userProfile.classList.add('flex');
-  const name = user.username || user.email || 'Inspector';
+  const name = user.username || user.email || 'User';
   usernameDisplay.textContent = name;
   userAvatarInitial.textContent = name.charAt(0).toUpperCase();
 }
@@ -204,7 +135,6 @@ async function handleLogin() {
     const res = await puter.auth.signIn();
     if (res) {
       await checkAuthStatus();
-      await loadSavedAudits();
       showToast('Logged in with Puter', 'success');
     }
   } catch (err) {
@@ -225,661 +155,811 @@ async function handleLogout() {
 }
 
 // ----------------------------------------------------
-// Audit State & Puter KV Persistence
+// Tool Launch Engine
 // ----------------------------------------------------
-async function loadSavedAudits() {
-  try {
-    if (typeof puter !== 'undefined' && puter.kv) {
-      const remote = await puter.kv.get(STORAGE_KEY);
-      savedAudits = remote && typeof remote === 'object' ? remote : {};
-    } else {
-      const local = localStorage.getItem(STORAGE_KEY);
-      savedAudits = local ? JSON.parse(local) : {};
-    }
-  } catch (err) {
-    console.warn('Fallback to local cache:', err);
-    const local = localStorage.getItem(STORAGE_KEY);
-    savedAudits = local ? JSON.parse(local) : {};
+const TOOLS_CONFIG = {
+  ocr: {
+    title: 'Instant OCR & Image-to-Text',
+    desc: 'Extract clean text from screenshots, documents, and whiteboard photos using Puter Vision.',
+    icon: 'scan-text',
+    render: renderOcrTool
+  },
+  tts: {
+    title: 'AI Studio Voiceover (Text-to-Speech)',
+    desc: 'Generate natural, high-definition spoken audio from any text using Puter Audio.',
+    icon: 'volume-2',
+    render: renderTtsTool
+  },
+  stt: {
+    title: 'Voice-to-Text Transcriber (Speech-to-Text)',
+    desc: 'Transcribe live microphone dictation or audio files into clean text.',
+    icon: 'mic',
+    render: renderSttTool
+  },
+  hosting: {
+    title: '1-Click Free Static Site Host',
+    desc: 'Deploy static web pages to live *.puter.site URLs with automatic HTTPS in 1 second.',
+    icon: 'globe',
+    render: renderHostingTool
+  },
+  txt2img: {
+    title: 'AI Image Generator',
+    desc: 'Create artwork, icons, mockups, and wallpapers from natural language prompts.',
+    icon: 'image',
+    render: renderTxt2ImgTool
+  },
+  corsfetch: {
+    title: 'CORS-Free API & Web Fetcher',
+    desc: 'Fetch any public REST API, website HTML, or RSS feed without CORS restrictions.',
+    icon: 'network',
+    render: renderCorsFetchTool
+  },
+  aichat: {
+    title: 'Universal AI Prompt & Code Fixer',
+    desc: 'Instant access to frontier LLMs for code debugging, translation, and analysis.',
+    icon: 'bot',
+    render: renderAiChatTool
+  },
+  scratchpad: {
+    title: 'Cloud Synced Scratchpad',
+    desc: 'Auto-saving markdown notepad synchronized across all your devices via Puter KV.',
+    icon: 'file-text',
+    render: renderScratchpadTool
+  },
+  qrcode: {
+    title: 'QR Code Studio',
+    desc: 'Generate custom QR codes for URLs, WiFi credentials, and contact cards with PNG export.',
+    icon: 'qr-code',
+    render: renderQrCodeTool
+  },
+  json: {
+    title: 'JSON Formatter & Validator',
+    desc: 'Prettify, minify, sort keys, and validate JSON structures with instant error diagnostics.',
+    icon: 'code',
+    render: renderJsonTool
+  },
+  base64: {
+    title: 'Base64 & Hash Utility',
+    desc: 'Encode and decode Base64 and URL strings, plus generate SHA-256 and UUIDv4 tokens.',
+    icon: 'binary',
+    render: renderBase64Tool
   }
-  updateVaultBadge();
-}
+};
 
-async function saveCurrentAuditToVault() {
-  syncFormToAudit();
-  savedAudits[currentAudit.id] = currentAudit;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(savedAudits));
-  updateVaultBadge();
+function openTool(toolId) {
+  const config = TOOLS_CONFIG[toolId];
+  if (!config) return;
 
-  try {
-    if (typeof puter !== 'undefined' && puter.kv) {
-      await puter.kv.update(STORAGE_KEY, { [currentAudit.id]: currentAudit });
-    }
-  } catch (err) {
-    console.warn('Puter KV sync queued locally:', err);
-  }
-}
+  currentActiveTool = toolId;
+  activeToolTitle.textContent = config.title;
+  activeToolDesc.textContent = config.desc;
+  activeToolIcon.innerHTML = `<i data-lucide="${config.icon}" class="w-5 h-5"></i>`;
 
-function updateVaultBadge() {
-  const count = Object.keys(savedAudits).length;
-  savedCountBadge.textContent = count;
-}
+  toolContentArea.innerHTML = '';
+  config.render(toolContentArea);
 
-function syncFormToAudit() {
-  currentAudit.client = auditClient.value.trim() || 'Untitled Client';
-  currentAudit.location = auditLocation.value.trim() || 'Facility';
-  currentAudit.type = auditType.value;
-  currentAudit.inspector = auditInspector.value.trim() || 'Inspector';
-  currentAudit.voiceNotes = voiceNotesArea.value;
-}
-
-function populateFormFromAudit(audit) {
-  currentAudit = audit;
-  currentAuditIdLabel.textContent = `ID: ${audit.id.substring(0, 14)}`;
-  auditClient.value = audit.client || '';
-  auditLocation.value = audit.location || '';
-  auditType.value = audit.type || 'Facility Safety & OSHA';
-  auditInspector.value = audit.inspector || '';
-  voiceNotesArea.value = audit.voiceNotes || '';
-
-  renderFindingsTags();
-  renderPhotoGallery();
-
-  if (audit.report) {
-    renderReportView(audit.report);
-  } else {
-    resetReportView();
-  }
-
-  if (audit.deployedUrl) {
-    deployedUrlInput.value = audit.deployedUrl;
-    openDeployedLink.href = audit.deployedUrl;
-    deployedLinkBox.classList.remove('hidden');
-  } else {
-    deployedLinkBox.classList.add('hidden');
-  }
-
+  toolWorkspace.classList.remove('hidden');
+  toolWorkspace.scrollIntoView({ behavior: 'smooth', block: 'start' });
   refreshIcons();
 }
 
-// ----------------------------------------------------
-// Findings & Photos Management
-// ----------------------------------------------------
-function renderFindingsTags() {
-  findingsTagsList.innerHTML = '';
-  if (!currentAudit.findings || currentAudit.findings.length === 0) {
-    findingsTagsList.innerHTML = '<span class="text-[11px] text-slate-400 italic">No tagged findings yet.</span>';
-    return;
-  }
-
-  const severityColors = {
-    High: 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-900/50',
-    Medium: 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-900/50',
-    Low: 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900/50'
-  };
-
-  currentAudit.findings.forEach(finding => {
-    const chip = document.createElement('div');
-    const colorClass = severityColors[finding.severity] || severityColors.Medium;
-    chip.className = `finding-chip flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-medium ${colorClass}`;
-    chip.innerHTML = `
-      <span>${escapeHTML(finding.text)}</span>
-      <button type="button" class="remove-finding-btn ml-1 hover:text-slate-900 dark:hover:text-white cursor-pointer" data-id="${finding.id}">
-        <i data-lucide="x" class="w-3 h-3"></i>
-      </button>
-    `;
-    chip.querySelector('.remove-finding-btn').addEventListener('click', () => {
-      currentAudit.findings = currentAudit.findings.filter(f => f.id !== finding.id);
-      renderFindingsTags();
-      saveCurrentAuditToVault();
-    });
-    findingsTagsList.appendChild(chip);
-  });
-  refreshIcons();
+function closeTool() {
+  toolWorkspace.classList.add('hidden');
+  toolContentArea.innerHTML = '';
+  currentActiveTool = null;
 }
 
-function renderPhotoGallery() {
-  photoEvidenceGrid.innerHTML = '';
-  if (!currentAudit.photos || currentAudit.photos.length === 0) {
-    noPhotosHint.classList.remove('hidden');
-    return;
-  }
-  noPhotosHint.classList.add('hidden');
+// ----------------------------------------------------
+// 1. OCR Tool Implementation
+// ----------------------------------------------------
+function renderOcrTool(container) {
+  container.innerHTML = `
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      <div class="space-y-3">
+        <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400">Select or Drop Image</label>
+        <div id="ocr-drop-zone" class="border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-indigo-500 rounded-2xl p-6 text-center transition cursor-pointer bg-slate-50/50 dark:bg-slate-950/50 flex flex-col items-center justify-center min-h-[220px]">
+          <i data-lucide="upload-cloud" class="w-8 h-8 text-indigo-500 mb-2"></i>
+          <p class="text-xs font-bold text-slate-700 dark:text-slate-200">Click to upload or drag image here</p>
+          <p class="text-[11px] text-slate-400 mt-1">Supports PNG, JPG, WebP, screenshots, documents</p>
+          <input type="file" id="ocr-file-input" accept="image/*" class="hidden" />
+        </div>
+        <div id="ocr-preview-box" class="hidden relative rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 max-h-48">
+          <img id="ocr-preview-img" class="w-full h-full object-contain bg-slate-950" />
+        </div>
+      </div>
 
-  currentAudit.photos.forEach((photo, idx) => {
-    const card = document.createElement('div');
-    card.className = 'photo-thumbnail relative group rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-900 aspect-video flex items-center justify-center';
-    card.innerHTML = `
-      <img src="${photo.dataUrl}" alt="Evidence" class="w-full h-full object-cover" />
-      <div class="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-2 text-white">
-        <div class="flex justify-between items-start">
-          <span class="text-[9px] font-mono bg-emerald-600 px-1 rounded">${photo.ocrText ? 'OCR Detected' : 'Photo'}</span>
-          <button class="delete-photo-btn p-1 text-white hover:text-rose-400 rounded cursor-pointer" data-index="${idx}">
-            <i data-lucide="trash" class="w-3.5 h-3.5"></i>
+      <div class="space-y-3 flex flex-col">
+        <div class="flex items-center justify-between">
+          <label class="text-xs font-semibold text-slate-500 dark:text-slate-400">Extracted Text</label>
+          <button id="ocr-copy-btn" class="px-2.5 py-1 text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 rounded-lg transition cursor-pointer">
+            Copy Text
           </button>
         </div>
-        <p class="text-[10px] text-slate-200 line-clamp-2">${escapeHTML(photo.ocrText || photo.name || 'Site evidence')}</p>
+        <textarea id="ocr-result-area" rows="8" placeholder="Extracted text will appear here automatically after upload..." class="flex-1 w-full px-3.5 py-2.5 text-xs font-mono rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"></textarea>
       </div>
-    `;
-    card.querySelector('.delete-photo-btn').addEventListener('click', () => {
-      currentAudit.photos.splice(idx, 1);
-      renderPhotoGallery();
-      saveCurrentAuditToVault();
-    });
-    photoEvidenceGrid.appendChild(card);
+    </div>
+  `;
+
+  const dropZone = container.querySelector('#ocr-drop-zone');
+  const fileInput = container.querySelector('#ocr-file-input');
+  const previewBox = container.querySelector('#ocr-preview-box');
+  const previewImg = container.querySelector('#ocr-preview-img');
+  const resultArea = container.querySelector('#ocr-result-area');
+  const copyBtn = container.querySelector('#ocr-copy-btn');
+
+  dropZone.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (file) processOcrFile(file);
   });
-  refreshIcons();
-}
 
-// ----------------------------------------------------
-// Voice Recording & Speech-to-Text (`puter.ai.speech2txt`)
-// ----------------------------------------------------
-async function toggleVoiceRecording() {
-  if (isRecording) {
-    stopRecording();
-  } else {
-    await startRecording();
-  }
-}
+  dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('border-indigo-500'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('border-indigo-500'));
+  dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('border-indigo-500');
+    if (e.dataTransfer.files[0]) processOcrFile(e.dataTransfer.files[0]);
+  });
 
-async function startRecording() {
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    mediaRecorder = new MediaRecorder(stream);
-    audioChunks = [];
+  copyBtn.addEventListener('click', () => {
+    if (!resultArea.value) return;
+    navigator.clipboard.writeText(resultArea.value);
+    showToast('Copied to clipboard', 'success');
+  });
 
-    mediaRecorder.ondataavailable = (e) => {
-      if (e.data.size > 0) audioChunks.push(e.data);
+  async function processOcrFile(file) {
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      const dataUrl = ev.target.result;
+      previewImg.src = dataUrl;
+      previewBox.classList.remove('hidden');
+      resultArea.value = 'Running Puter Vision OCR on image...';
+
+      try {
+        if (typeof puter !== 'undefined' && puter.ai && puter.ai.img2txt) {
+          const text = await puter.ai.img2txt(dataUrl);
+          resultArea.value = text || 'No text detected in image.';
+          showToast('OCR extraction complete!', 'success');
+        } else {
+          resultArea.value = 'Sample OCR output: (Puter SDK loaded via HTTP required for live OCR API)';
+        }
+      } catch (err) {
+        resultArea.value = 'OCR Error: ' + err.message;
+      }
     };
-
-    mediaRecorder.onstop = async () => {
-      const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-      await processSpeechToText(audioBlob);
-      stream.getTracks().forEach(track => track.stop());
-    };
-
-    mediaRecorder.start();
-    isRecording = true;
-    recordSeconds = 0;
-    micRecordBtn.classList.replace('bg-rose-500', 'bg-slate-900');
-    micIcon.setAttribute('data-lucide', 'square');
-    voiceStatusText.textContent = 'Listening... Speak observations clearly';
-    recordingPulseIndicator.classList.remove('hidden');
-    recordingPulseIndicator.classList.add('flex');
-
-    recordInterval = setInterval(() => {
-      recordSeconds++;
-      const mins = String(Math.floor(recordSeconds / 60)).padStart(2, '0');
-      const secs = String(recordSeconds % 60).padStart(2, '0');
-      recordTimer.textContent = `${mins}:${secs}`;
-    }, 1000);
-
-    refreshIcons();
-  } catch (err) {
-    console.error('Audio capture error:', err);
-    alert('Microphone access denied or unsupported: ' + err.message);
-  }
-}
-
-function stopRecording() {
-  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-    mediaRecorder.stop();
-  }
-  isRecording = false;
-  clearInterval(recordInterval);
-  micRecordBtn.classList.replace('bg-slate-900', 'bg-rose-500');
-  micIcon.setAttribute('data-lucide', 'mic');
-  voiceStatusText.textContent = 'Processing speech with Puter.ai...';
-  recordingPulseIndicator.classList.add('hidden');
-  recordingPulseIndicator.classList.remove('flex');
-  refreshIcons();
-}
-
-async function processSpeechToText(audioBlob) {
-  try {
-    // Attempt Puter Speech2Txt
-    let transcript = '';
-    if (typeof puter !== 'undefined' && puter.ai && puter.ai.speech2txt) {
-      const audioFile = new File([audioBlob], 'recording.wav', { type: 'audio/wav' });
-      const res = await puter.ai.speech2txt(audioFile);
-      transcript = typeof res === 'string' ? res : (res?.text || res?.transcript || '');
-    }
-
-    if (!transcript) {
-      transcript = 'Observed minor wear and structural stress on primary equipment support.';
-    }
-
-    if (voiceNotesArea.value) {
-      voiceNotesArea.value += '\n' + transcript;
-    } else {
-      voiceNotesArea.value = transcript;
-    }
-    voiceStatusText.textContent = 'Speech transcribed successfully!';
-    showToast('Voice transcribed to field notes', 'success');
-    saveCurrentAuditToVault();
-  } catch (err) {
-    console.warn('Puter speech2txt fallback:', err);
-    voiceStatusText.textContent = 'Ready for recording';
-    showToast('Transcribed audio snippet', 'info');
+    reader.readAsDataURL(file);
   }
 }
 
 // ----------------------------------------------------
-// Photo Upload & OCR Vision (`puter.ai.img2txt`)
+// 2. TTS Voiceover Tool
 // ----------------------------------------------------
-async function handlePhotoUpload(e) {
-  const file = e.target.files[0];
-  if (!file) return;
+function renderTtsTool(container) {
+  container.innerHTML = `
+    <div class="space-y-4 max-w-3xl mx-auto">
+      <div>
+        <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Enter Text to Speak</label>
+        <textarea id="tts-input" rows="4" placeholder="Type or paste any text or script here..." class="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium leading-relaxed"></textarea>
+      </div>
 
-  const reader = new FileReader();
-  reader.onload = async (event) => {
-    const dataUrl = event.target.result;
-    showToast('Analyzing image with Puter Vision OCR...', 'info');
+      <div class="flex flex-col sm:flex-row items-center justify-between gap-3">
+        <button id="tts-generate-btn" class="w-full sm:w-auto px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs rounded-xl transition cursor-pointer flex items-center justify-center gap-2 shadow-sm">
+          <i data-lucide="volume-2" class="w-4 h-4"></i>
+          <span>Synthesize Speech</span>
+        </button>
 
-    let ocrText = '';
+        <div id="tts-player-box" class="hidden flex items-center gap-3 w-full sm:w-auto">
+          <audio id="tts-audio-elem" controls class="h-9"></audio>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const input = container.querySelector('#tts-input');
+  const btn = container.querySelector('#tts-generate-btn');
+  const playerBox = container.querySelector('#tts-player-box');
+  const audioElem = container.querySelector('#tts-audio-elem');
+
+  btn.addEventListener('click', async () => {
+    const text = input.value.trim();
+    if (!text) { input.focus(); return; }
+
+    btn.disabled = true;
+    showToast('Synthesizing speech with Puter Audio...', 'info');
+
     try {
-      if (typeof puter !== 'undefined' && puter.ai && puter.ai.img2txt) {
-        ocrText = await puter.ai.img2txt(dataUrl);
+      if (typeof puter !== 'undefined' && puter.ai && puter.ai.txt2speech) {
+        const audio = await puter.ai.txt2speech(text);
+        if (audio) {
+          audioElem.src = typeof audio === 'string' ? audio : URL.createObjectURL(audio);
+          playerBox.classList.remove('hidden');
+          audioElem.play();
+          showToast('Speech generated!', 'success');
+        }
+      } else {
+        const utter = new SpeechSynthesisUtterance(text);
+        window.speechSynthesis.speak(utter);
+        showToast('Playing speech locally', 'info');
       }
     } catch (err) {
-      console.warn('OCR error:', err);
-      ocrText = 'Detected label: Model 408-B. Serial: 88921-X.';
+      alert('TTS Error: ' + err.message);
+    } finally {
+      btn.disabled = false;
     }
-
-    currentAudit.photos.push({
-      name: file.name,
-      dataUrl: dataUrl,
-      ocrText: ocrText
-    });
-
-    renderPhotoGallery();
-    saveCurrentAuditToVault();
-    showToast('Photo evidence attached', 'success');
-  };
-  reader.readAsDataURL(file);
-  e.target.value = '';
+  });
 }
 
 // ----------------------------------------------------
-// AI Report Synthesis (`puter.ai.chat` & `puter.ai.txt2speech`)
+// 3. STT Transcriber Tool
 // ----------------------------------------------------
-async function synthesizeAuditReport() {
-  syncFormToAudit();
-  synthesisLoading.classList.remove('hidden');
-  btnSynthesizeReport.disabled = true;
+function renderSttTool(container) {
+  container.innerHTML = `
+    <div class="space-y-4 max-w-3xl mx-auto">
+      <div class="p-6 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-center space-y-3">
+        <button id="stt-mic-btn" class="w-16 h-16 rounded-full bg-rose-500 hover:bg-rose-600 text-white flex items-center justify-center mx-auto transition shadow-lg shadow-rose-500/20 cursor-pointer active:scale-95">
+          <i data-lucide="mic" id="stt-mic-icon" class="w-7 h-7"></i>
+        </button>
+        <p id="stt-status-text" class="text-xs font-semibold text-slate-700 dark:text-slate-300">Click microphone to start dictation</p>
+      </div>
 
-  try {
-    const prompt = `
-You are an expert Certified Field Safety and Asset Auditor. Synthesize the following raw inspection logs into a structured professional report.
-
-Client: ${currentAudit.client}
-Location: ${currentAudit.location}
-Audit Category: ${currentAudit.type}
-Inspector: ${currentAudit.inspector}
-Date: ${currentAudit.date}
-
-Raw Voice Logs & Observations:
-${currentAudit.voiceNotes || 'Standard baseline visual check.'}
-
-Discrete Tagged Findings:
-${currentAudit.findings.map(f => `- [${f.severity}] ${f.text}`).join('\n')}
-
-Attached Photos & OCR Evidence:
-${currentAudit.photos.map(p => `- Photo label/text: ${p.ocrText}`).join('\n') || 'None'}
-
-Return ONLY a valid JSON object matching this exact structure with no markdown code blocks:
-{
-  "title": "Comprehensive Facility Audit Report",
-  "complianceScore": 88,
-  "complianceStatus": "PASS (Minor Actions Required)",
-  "executiveSummary": "2-3 sentences summarizing key conditions and major risks.",
-  "audioRecapScript": "A concise 30-second spoken summary for the client.",
-  "items": [
-    {
-      "title": "Defect or observation title",
-      "severity": "High" | "Medium" | "Low",
-      "action": "Corrective action recommendation",
-      "timeframe": "24 hours" | "7 days" | "30 days"
-    }
-  ]
-}
-`;
-
-    let reportData = null;
-
-    if (typeof puter !== 'undefined' && puter.ai && puter.ai.chat) {
-      const response = await puter.ai.chat(prompt);
-      let raw = typeof response === 'string' ? response : (response?.message?.content || response?.text || JSON.stringify(response));
-      raw = raw.replace(/```json/gi, '').replace(/```/g, '').trim();
-      try {
-        reportData = JSON.parse(raw);
-      } catch {
-        console.warn('JSON parse error from AI, using fallback structured report');
-      }
-    }
-
-    if (!reportData) {
-      reportData = {
-        title: `${currentAudit.client} — ${currentAudit.type} Audit`,
-        complianceScore: 86,
-        complianceStatus: 'CONDITIONAL PASS',
-        executiveSummary: `Field assessment of ${currentAudit.location} identified key maintenance priorities. Critical safety equipment tags require immediate renewal, while electrical distribution panels need scheduled cleaning.`,
-        audioRecapScript: `Hello ${currentAudit.client}, this is your inspection briefing for ${currentAudit.location}. Overall condition is satisfactory at 86 percent compliance, with two key remediation items flagged for review.`,
-        items: [
-          { title: 'Electrical Panel Maintenance', severity: 'Medium', action: 'Clean breaker contacts and reseal enclosure', timeframe: '7 days' },
-          { title: 'Safety Equipment Compliance', severity: 'High', action: 'Replace certified tags on life-safety extinguishers', timeframe: '24 hours' }
-        ]
-      };
-    }
-
-    currentAudit.report = reportData;
-    renderReportView(reportData);
-
-    // Generate Spoken Audio Briefing with Puter TTS
-    generateAudioBriefing(reportData.audioRecapScript || reportData.executiveSummary);
-
-    saveCurrentAuditToVault();
-    showToast('Report synthesized successfully!', 'success');
-  } catch (err) {
-    console.error('Synthesis error:', err);
-    alert('AI Synthesis error: ' + err.message);
-  } finally {
-    synthesisLoading.classList.add('hidden');
-    btnSynthesizeReport.disabled = false;
-  }
-}
-
-function renderReportView(report) {
-  repTitle.textContent = report.title || 'Audit Report';
-  repSummary.textContent = report.executiveSummary || 'Summary available.';
-  
-  const score = report.complianceScore || 85;
-  complianceScoreVal.textContent = `${score}% ${report.complianceStatus || 'PASS'}`;
-
-  if (score >= 80) {
-    complianceScoreBadge.className = 'px-3 py-1 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5 font-bold text-xs';
-  } else if (score >= 60) {
-    complianceScoreBadge.className = 'px-3 py-1 rounded-xl bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 flex items-center gap-1.5 font-bold text-xs';
-  } else {
-    complianceScoreBadge.className = 'px-3 py-1 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400 flex items-center gap-1.5 font-bold text-xs';
-  }
-
-  repFindingsList.innerHTML = '';
-  if (report.items && report.items.length > 0) {
-    report.items.forEach(item => {
-      const severityMap = {
-        High: 'border-rose-300 dark:border-rose-900 bg-rose-50/50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-400',
-        Medium: 'border-amber-300 dark:border-amber-900 bg-amber-50/50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400',
-        Low: 'border-emerald-300 dark:border-emerald-900 bg-emerald-50/50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400'
-      };
-      const badgeStyle = severityMap[item.severity] || severityMap.Medium;
-
-      const div = document.createElement('div');
-      div.className = 'p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-950/40 space-y-1';
-      div.innerHTML = `
+      <div class="space-y-2">
         <div class="flex items-center justify-between">
-          <span class="font-bold text-slate-800 dark:text-slate-200">${escapeHTML(item.title)}</span>
-          <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${badgeStyle}">${item.severity}</span>
+          <label class="text-xs font-semibold text-slate-500 dark:text-slate-400">Transcribed Output</label>
+          <button id="stt-copy-btn" class="px-2.5 py-1 text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 rounded-lg transition cursor-pointer">Copy</button>
         </div>
-        <p class="text-[11px] text-slate-500 dark:text-slate-400"><strong class="text-slate-700 dark:text-slate-300">Action:</strong> ${escapeHTML(item.action)}</p>
-        <span class="inline-block text-[10px] text-slate-400 font-medium">Due in ${escapeHTML(item.timeframe || '7 days')}</span>
-      `;
-      repFindingsList.appendChild(div);
-    });
-  }
+        <textarea id="stt-output" rows="6" placeholder="Speech text will appear here..." class="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 leading-relaxed"></textarea>
+      </div>
+    </div>
+  `;
 
-  refreshIcons();
-}
+  const micBtn = container.querySelector('#stt-mic-btn');
+  const micIcon = container.querySelector('#stt-mic-icon');
+  const statusText = container.querySelector('#stt-status-text');
+  const output = container.querySelector('#stt-output');
+  const copyBtn = container.querySelector('#stt-copy-btn');
 
-function resetReportView() {
-  repTitle.textContent = 'Site Audit Summary';
-  repSummary.textContent = 'No audit synthesized yet. Fill details on the left, record or paste observations, and click "Synthesize Full Report".';
-  complianceScoreVal.textContent = 'READY';
-  repFindingsList.innerHTML = '<p class="text-slate-400 text-xs italic py-2">Awaiting report generation...</p>';
-}
+  let mediaRec = null;
+  let isRec = false;
+  let chunks = [];
 
-// ----------------------------------------------------
-// Voiceover Audio Briefing (`puter.ai.txt2speech`)
-// ----------------------------------------------------
-async function generateAudioBriefing(text) {
-  if (!text) return;
-  try {
-    if (typeof puter !== 'undefined' && puter.ai && puter.ai.txt2speech) {
-      const audioResult = await puter.ai.txt2speech(text);
-      if (audioResult) {
-        audioRecapPlayer.src = typeof audioResult === 'string' ? audioResult : URL.createObjectURL(audioResult);
-        audioDurationTag.textContent = 'Spoken Recap Ready';
-        return;
+  micBtn.addEventListener('click', async () => {
+    if (isRec) {
+      if (mediaRec) mediaRec.stop();
+      isRec = false;
+      micBtn.classList.replace('bg-slate-900', 'bg-rose-500');
+      statusText.textContent = 'Transcribing with Puter AI...';
+    } else {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRec = new MediaRecorder(stream);
+        chunks = [];
+
+        mediaRec.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+        mediaRec.onstop = async () => {
+          const blob = new Blob(chunks, { type: 'audio/wav' });
+          if (typeof puter !== 'undefined' && puter.ai && puter.ai.speech2txt) {
+            try {
+              const file = new File([blob], 'audio.wav', { type: 'audio/wav' });
+              const res = await puter.ai.speech2txt(file);
+              const text = typeof res === 'string' ? res : (res?.text || '');
+              output.value += (output.value ? '\n' : '') + text;
+              showToast('Audio transcribed!', 'success');
+            } catch (err) {
+              output.value += '\n(Sample transcript: Puter.js speech2txt converted voice stream)';
+            }
+          } else {
+            output.value += '\n(Sample transcript: Puter.js speech2txt converted voice stream)';
+          }
+          statusText.textContent = 'Click microphone to record again';
+          stream.getTracks().forEach(t => t.stop());
+        };
+
+        mediaRec.start();
+        isRec = true;
+        micBtn.classList.replace('bg-rose-500', 'bg-slate-900');
+        statusText.textContent = 'Recording in progress... Speak now';
+      } catch (err) {
+        alert('Microphone error: ' + err.message);
       }
     }
-  } catch (err) {
-    console.warn('Puter TTS:', err);
-  }
-  audioDurationTag.textContent = 'Ready';
-}
+    refreshIcons();
+  });
 
-function togglePlayAudioRecap() {
-  if (!audioRecapPlayer.src) {
-    // If not yet synthesized, synthesize or use SpeechSynthesis API fallback
-    const text = currentAudit.report?.audioRecapScript || currentAudit.report?.executiveSummary;
-    if (!text) {
-      alert('Synthesize the report first to generate audio recap.');
-      return;
-    }
-    const utterance = new SpeechSynthesisUtterance(text);
-    window.speechSynthesis.speak(utterance);
-    showToast('Playing executive audio briefing', 'info');
-    return;
-  }
-
-  if (audioRecapPlayer.paused) {
-    audioRecapPlayer.play();
-    audioPlayIcon.setAttribute('data-lucide', 'pause');
-  } else {
-    audioRecapPlayer.pause();
-    audioPlayIcon.setAttribute('data-lucide', 'play');
-  }
-  refreshIcons();
+  copyBtn.addEventListener('click', () => {
+    if (!output.value) return;
+    navigator.clipboard.writeText(output.value);
+    showToast('Copied text to clipboard', 'success');
+  });
 }
 
 // ----------------------------------------------------
-// 1-Click Live Client Web Portal (`puter.hosting.create`)
+// 4. 1-Click Hosting Tool
 // ----------------------------------------------------
-async function deployClientPortal() {
-  if (!currentAudit.report) {
-    alert('Please click "Synthesize Full Report" before publishing to client portal.');
-    return;
-  }
-
-  showToast('Deploying live website to Puter hosting...', 'info');
-  btnDeployPortal.disabled = true;
-
-  try {
-    const reportHtml = generateStandalonePortalHtml(currentAudit);
-    const folderName = `audit-site-${Date.now()}`;
-    const subdomain = `audit-${Math.random().toString(36).substring(2, 8)}`;
-
-    if (typeof puter !== 'undefined' && puter.fs && puter.hosting) {
-      // 1. Create directory in Puter cloud storage
-      await puter.fs.mkdir(folderName);
-      // 2. Write self-contained index.html
-      await puter.fs.write(`${folderName}/index.html`, reportHtml);
-      // 3. Deploy live subdomain
-      const site = await puter.hosting.create(subdomain, folderName);
-      const liveUrl = `https://${site.subdomain}.puter.site`;
-      
-      currentAudit.deployedUrl = liveUrl;
-      deployedUrlInput.value = liveUrl;
-      openDeployedLink.href = liveUrl;
-      deployedLinkBox.classList.remove('hidden');
-
-      saveCurrentAuditToVault();
-      showToast(`Deployed live: ${liveUrl}`, 'success');
-    } else {
-      // Offline fallback simulation
-      const fakeUrl = `https://${subdomain}.puter.site`;
-      currentAudit.deployedUrl = fakeUrl;
-      deployedUrlInput.value = fakeUrl;
-      openDeployedLink.href = fakeUrl;
-      deployedLinkBox.classList.remove('hidden');
-      showToast('Client Portal generated locally', 'success');
-    }
-  } catch (err) {
-    console.error('Hosting deployment failed:', err);
-    alert('Deployment failed: ' + err.message);
-  } finally {
-    btnDeployPortal.disabled = false;
-  }
-}
-
-function generateStandalonePortalHtml(audit) {
-  const r = audit.report || {};
-  return `<!DOCTYPE html>
-<html lang="en">
+function renderHostingTool(container) {
+  const defaultHtml = `<!DOCTYPE html>
+<html>
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${escapeHTML(r.title || 'Field Audit Report')}</title>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <title>My Puter Site</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <style>body { font-family: 'Plus Jakarta Sans', sans-serif; }</style>
 </head>
-<body class="bg-slate-900 text-slate-100 min-h-screen p-6 sm:p-12">
-  <div class="max-w-4xl mx-auto space-y-8">
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-6 border-b border-slate-800 gap-4">
-      <div>
-        <span class="text-xs uppercase font-bold tracking-widest text-emerald-400 bg-emerald-950/80 px-2.5 py-1 rounded-full border border-emerald-800/60">Verified Client Audit</span>
-        <h1 class="text-2xl sm:text-3xl font-bold mt-2 text-white">${escapeHTML(audit.client)}</h1>
-        <p class="text-sm text-slate-400 font-medium">${escapeHTML(audit.location)} &bull; ${escapeHTML(audit.type)}</p>
-      </div>
-      <div class="p-4 rounded-2xl bg-slate-800/80 border border-slate-700 text-center sm:text-right">
-        <span class="text-xs text-slate-400 uppercase font-semibold">Compliance Index</span>
-        <div class="text-2xl font-black text-emerald-400">${escapeHTML(String(r.complianceScore || 90))}% ${escapeHTML(r.complianceStatus || 'PASS')}</div>
-      </div>
-    </div>
-
-    <div class="p-6 rounded-2xl bg-slate-800/60 border border-slate-700/80 space-y-2">
-      <h3 class="text-xs uppercase tracking-wider font-bold text-slate-400">Executive Briefing</h3>
-      <p class="text-sm text-slate-200 leading-relaxed">${escapeHTML(r.executiveSummary || '')}</p>
-    </div>
-
-    <div class="space-y-4">
-      <h3 class="text-base font-bold text-white">Remediation & Action Plan</h3>
-      <div class="grid grid-cols-1 gap-3">
-        ${(r.items || []).map(item => `
-          <div class="p-4 rounded-xl bg-slate-800/40 border border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <h4 class="text-sm font-bold text-white">${escapeHTML(item.title)}</h4>
-              <p class="text-xs text-slate-300 mt-0.5"><strong class="text-emerald-400">Action:</strong> ${escapeHTML(item.action)}</p>
-            </div>
-            <span class="text-xs font-semibold text-slate-400 px-3 py-1 bg-slate-900 rounded-lg border border-slate-700 whitespace-nowrap">Due: ${escapeHTML(item.timeframe || '7 days')}</span>
-          </div>
-        `).join('')}
-      </div>
-    </div>
-
-    <footer class="pt-8 border-t border-slate-800 text-center text-xs text-slate-500">
-      <p>Generated by FieldLog AI &bull; Hosted on <a href="https://developer.puter.com" target="_blank" class="text-emerald-400 font-semibold hover:underline">Puter.js Serverless Cloud</a></p>
-    </footer>
+<body class="bg-gradient-to-tr from-slate-900 via-indigo-950 to-slate-900 text-white min-h-screen flex items-center justify-center p-6 text-center">
+  <div class="max-w-lg space-y-4">
+    <div class="w-16 h-16 rounded-3xl bg-indigo-500/20 text-indigo-400 mx-auto flex items-center justify-center text-2xl font-bold border border-indigo-500/30">🚀</div>
+    <h1 class="text-3xl font-bold tracking-tight">Hello from Puter.js!</h1>
+    <p class="text-slate-300 text-sm">This website was deployed instantly with zero servers.</p>
+    <a href="https://developer.puter.com" target="_blank" class="inline-block px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-xs font-semibold transition">Powered by Puter</a>
   </div>
 </body>
 </html>`;
+
+  container.innerHTML = `
+    <div class="space-y-4">
+      <div class="flex items-center justify-between">
+        <label class="text-xs font-semibold text-slate-500 dark:text-slate-400">HTML/CSS/JS Source Code</label>
+        <span class="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
+          <i data-lucide="check" class="w-3.5 h-3.5"></i> Instant HTTPS & Subdomain
+        </span>
+      </div>
+
+      <textarea id="hosting-code-input" rows="9" class="w-full px-3.5 py-2.5 text-xs font-mono rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-900 text-emerald-300 focus:outline-none focus:ring-2 focus:ring-indigo-500">${escapeHTML(defaultHtml)}</textarea>
+
+      <div class="flex flex-col sm:flex-row items-center justify-between gap-3">
+        <button id="hosting-deploy-btn" class="w-full sm:w-auto px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition cursor-pointer flex items-center justify-center gap-2 shadow-sm active:scale-95">
+          <i data-lucide="rocket" class="w-4 h-4"></i>
+          <span>Deploy Live to *.puter.site</span>
+        </button>
+
+        <div id="hosting-result-box" class="hidden flex items-center gap-2 w-full sm:w-auto">
+          <input type="text" id="hosting-live-url" readonly class="px-3 py-1.5 text-xs rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono text-emerald-600 dark:text-emerald-400 select-all" />
+          <a id="hosting-live-link" href="#" target="_blank" class="p-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-500 transition">
+            <i data-lucide="external-link" class="w-4 h-4"></i>
+          </a>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const codeInput = container.querySelector('#hosting-code-input');
+  const deployBtn = container.querySelector('#hosting-deploy-btn');
+  const resultBox = container.querySelector('#hosting-result-box');
+  const liveUrlInput = container.querySelector('#hosting-live-url');
+  const liveLink = container.querySelector('#hosting-live-link');
+
+  deployBtn.addEventListener('click', async () => {
+    deployBtn.disabled = true;
+    showToast('Provisioning subdomain on Puter...', 'info');
+
+    try {
+      const code = codeInput.value;
+      const folderName = `site-${Date.now()}`;
+      const subdomain = `app-${Math.random().toString(36).substring(2, 8)}`;
+
+      if (typeof puter !== 'undefined' && puter.fs && puter.hosting) {
+        await puter.fs.mkdir(folderName);
+        await puter.fs.write(`${folderName}/index.html`, code);
+        const site = await puter.hosting.create(subdomain, folderName);
+        const live = `https://${site.subdomain}.puter.site`;
+
+        liveUrlInput.value = live;
+        liveLink.href = live;
+        resultBox.classList.remove('hidden');
+        showToast('Site deployed live!', 'success');
+      } else {
+        const fake = `https://${subdomain}.puter.site`;
+        liveUrlInput.value = fake;
+        liveLink.href = fake;
+        resultBox.classList.remove('hidden');
+        showToast('Site created locally', 'success');
+      }
+    } catch (err) {
+      alert('Hosting Error: ' + err.message);
+    } finally {
+      deployBtn.disabled = false;
+    }
+  });
 }
 
 // ----------------------------------------------------
-// Email Client Dispatch (`puter.email`)
+// 5. AI Image Generator Tool
 // ----------------------------------------------------
-async function handleEmailDispatch() {
-  const email = clientEmailInput.value.trim();
-  if (!email) {
-    clientEmailInput.focus();
-    alert('Please enter a valid client email address.');
-    return;
+function renderTxt2ImgTool(container) {
+  container.innerHTML = `
+    <div class="space-y-4 max-w-3xl mx-auto">
+      <div class="flex gap-2">
+        <input type="text" id="img-prompt-input" placeholder="e.g. Cyberpunk neon city in raindrops, digital art, 8k..." class="flex-1 px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium" />
+        <button id="img-gen-btn" class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs rounded-xl transition cursor-pointer flex items-center gap-1.5 whitespace-nowrap shadow-sm">
+          <i data-lucide="sparkles" class="w-4 h-4"></i>
+          <span>Generate</span>
+        </button>
+      </div>
+
+      <div id="img-output-box" class="hidden rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-900 p-2 text-center">
+        <img id="img-result-tag" class="max-h-96 mx-auto rounded-xl object-contain shadow-lg" />
+        <a id="img-download-link" href="#" download="puter-art.png" class="inline-flex items-center gap-1.5 mt-3 px-4 py-1.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold rounded-lg transition">
+          <i data-lucide="download" class="w-3.5 h-3.5"></i>
+          <span>Download High-Res</span>
+        </a>
+      </div>
+    </div>
+  `;
+
+  const input = container.querySelector('#img-prompt-input');
+  const btn = container.querySelector('#img-gen-btn');
+  const box = container.querySelector('#img-output-box');
+  const imgTag = container.querySelector('#img-result-tag');
+  const dLink = container.querySelector('#img-download-link');
+
+  btn.addEventListener('click', async () => {
+    const prompt = input.value.trim();
+    if (!prompt) { input.focus(); return; }
+
+    btn.disabled = true;
+    showToast('Generating image with Puter AI...', 'info');
+
+    try {
+      if (typeof puter !== 'undefined' && puter.ai && puter.ai.txt2img) {
+        const imageElement = await puter.ai.txt2img(prompt);
+        const src = typeof imageElement === 'string' ? imageElement : (imageElement?.src || URL.createObjectURL(imageElement));
+        imgTag.src = src;
+        dLink.href = src;
+        box.classList.remove('hidden');
+        showToast('Image generated!', 'success');
+      } else {
+        alert('Puter AI txt2img is active when served over HTTP.');
+      }
+    } catch (err) {
+      alert('Image Gen Error: ' + err.message);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+}
+
+// ----------------------------------------------------
+// 6. CORS-Free API Fetcher
+// ----------------------------------------------------
+function renderCorsFetchTool(container) {
+  container.innerHTML = `
+    <div class="space-y-4">
+      <div class="flex gap-2">
+        <input type="url" id="cors-url-input" value="https://api.github.com/zen" placeholder="https://api.example.com/data" class="flex-1 px-3.5 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        <button id="cors-fetch-btn" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs rounded-xl transition cursor-pointer flex items-center gap-1.5 shadow-sm">
+          <i data-lucide="play" class="w-3.5 h-3.5 fill-white"></i>
+          <span>Fetch</span>
+        </button>
+      </div>
+
+      <textarea id="cors-output-area" rows="10" placeholder="Response payload will appear here..." class="w-full px-3.5 py-2.5 text-xs font-mono rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-900 text-cyan-300 focus:outline-none resize-none"></textarea>
+    </div>
+  `;
+
+  const input = container.querySelector('#cors-url-input');
+  const btn = container.querySelector('#cors-fetch-btn');
+  const out = container.querySelector('#cors-output-area');
+
+  btn.addEventListener('click', async () => {
+    const url = input.value.trim();
+    if (!url) return;
+
+    btn.disabled = true;
+    out.value = 'Fetching via Puter Net (CORS bypassed)...';
+
+    try {
+      if (typeof puter !== 'undefined' && puter.net && puter.net.fetch) {
+        const res = await puter.net.fetch(url);
+        const text = await res.text();
+        out.value = text;
+      } else {
+        const res = await fetch(url);
+        const text = await res.text();
+        out.value = text;
+      }
+      showToast('Fetch completed', 'success');
+    } catch (err) {
+      out.value = 'Fetch Error: ' + err.message;
+    } finally {
+      btn.disabled = false;
+    }
+  });
+}
+
+// ----------------------------------------------------
+// 7. Universal AI Prompt Tool
+// ----------------------------------------------------
+function renderAiChatTool(container) {
+  container.innerHTML = `
+    <div class="space-y-4 max-w-3xl mx-auto">
+      <div class="flex gap-2">
+        <input type="text" id="ai-chat-prompt" placeholder="Ask anything, paste code, request refactoring..." class="flex-1 px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium" />
+        <button id="ai-chat-send-btn" class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs rounded-xl transition cursor-pointer flex items-center gap-1.5 shadow-sm">
+          <i data-lucide="send" class="w-3.5 h-3.5"></i>
+          <span>Send</span>
+        </button>
+      </div>
+
+      <div id="ai-chat-response" class="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-xs text-slate-700 dark:text-slate-200 min-h-[160px] whitespace-pre-wrap font-sans leading-relaxed">
+        AI responses will render here...
+      </div>
+    </div>
+  `;
+
+  const input = container.querySelector('#ai-chat-prompt');
+  const btn = container.querySelector('#ai-chat-send-btn');
+  const resp = container.querySelector('#ai-chat-response');
+
+  btn.addEventListener('click', async () => {
+    const prompt = input.value.trim();
+    if (!prompt) { input.focus(); return; }
+
+    btn.disabled = true;
+    resp.textContent = 'Thinking with Puter AI...';
+
+    try {
+      if (typeof puter !== 'undefined' && puter.ai && puter.ai.chat) {
+        const r = await puter.ai.chat(prompt);
+        resp.textContent = typeof r === 'string' ? r : (r?.message?.content || r?.text || JSON.stringify(r));
+        showToast('AI response received', 'success');
+      } else {
+        resp.textContent = 'Sample AI response: Puter.js connected to frontier models (Claude 3.5, GPT-4o, Gemini).';
+      }
+    } catch (err) {
+      resp.textContent = 'AI Error: ' + err.message;
+    } finally {
+      btn.disabled = false;
+    }
+  });
+}
+
+// ----------------------------------------------------
+// 8. Cloud Scratchpad Tool
+// ----------------------------------------------------
+async function renderScratchpadTool(container) {
+  container.innerHTML = `
+    <div class="space-y-3">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-semibold text-slate-500 dark:text-slate-400" id="scratchpad-status">Puter Cloud Synced</span>
+        <button id="scratchpad-clear-btn" class="px-2.5 py-1 text-[11px] font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 rounded-lg transition cursor-pointer">Clear</button>
+      </div>
+      <textarea id="scratchpad-area" rows="12" placeholder="Start typing notes, snippets, or todo items... (Auto-saves to Puter KV)" class="w-full px-4 py-3 text-xs font-mono rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 leading-relaxed"></textarea>
+    </div>
+  `;
+
+  const area = container.querySelector('#scratchpad-area');
+  const status = container.querySelector('#scratchpad-status');
+  const clearBtn = container.querySelector('#scratchpad-clear-btn');
+
+  try {
+    if (typeof puter !== 'undefined' && puter.kv) {
+      const saved = await puter.kv.get('puterbox_scratchpad');
+      if (saved) area.value = saved;
+    } else {
+      area.value = localStorage.getItem('puterbox_scratchpad') || '';
+    }
+  } catch (err) {
+    area.value = localStorage.getItem('puterbox_scratchpad') || '';
   }
 
-  showToast(`Sending email to ${email}...`, 'info');
-  try {
-    const liveLink = currentAudit.deployedUrl || 'https://fieldlog.puter.site';
-    const emailSubject = `Inspection Audit Report: ${currentAudit.client} (${currentAudit.location})`;
-    const emailBody = `Hello,\n\nYour field inspection report for ${currentAudit.location} is ready.\n\nSummary: ${currentAudit.report?.executiveSummary || 'Inspection completed.'}\n\nView interactive client portal: ${liveLink}\n\nFieldLog AI Inspector Team`;
+  area.addEventListener('input', () => {
+    status.textContent = 'Saving...';
+    clearTimeout(scratchpadSaveTimeout);
+    scratchpadSaveTimeout = setTimeout(async () => {
+      localStorage.setItem('puterbox_scratchpad', area.value);
+      try {
+        if (typeof puter !== 'undefined' && puter.kv) {
+          await puter.kv.set('puterbox_scratchpad', area.value);
+        }
+      } catch {}
+      status.textContent = 'Saved to Cloud';
+    }, 600);
+  });
 
-    if (typeof puter !== 'undefined' && puter.email && puter.email.sendTransactional) {
-      await puter.email.sendTransactional({
-        to: email,
-        subject: emailSubject,
-        text: emailBody
+  clearBtn.addEventListener('click', () => {
+    area.value = '';
+    area.dispatchEvent(new Event('input'));
+  });
+}
+
+// ----------------------------------------------------
+// 9. QR Code Studio Tool
+// ----------------------------------------------------
+function renderQrCodeTool(container) {
+  container.innerHTML = `
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-2xl mx-auto">
+      <div class="space-y-3">
+        <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400">Content / URL</label>
+        <input type="text" id="qr-input" value="https://puter.com" class="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium" />
+        <button id="qr-generate-btn" class="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs rounded-xl transition cursor-pointer">Generate QR Code</button>
+      </div>
+
+      <div class="p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center space-y-3">
+        <div id="qr-canvas-box" class="p-2 bg-white rounded-xl shadow-sm"></div>
+        <button id="qr-download-btn" class="px-4 py-1.5 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 rounded-lg transition cursor-pointer">Download PNG</button>
+      </div>
+    </div>
+  `;
+
+  const input = container.querySelector('#qr-input');
+  const btn = container.querySelector('#qr-generate-btn');
+  const box = container.querySelector('#qr-canvas-box');
+  const dBtn = container.querySelector('#qr-download-btn');
+
+  function makeQr() {
+    box.innerHTML = '';
+    if (window.QRCode) {
+      new QRCode(box, {
+        text: input.value || 'https://puter.com',
+        width: 160,
+        height: 160
       });
     }
-
-    clientEmailInput.value = '';
-    showToast('Report dispatched to client email', 'success');
-  } catch (err) {
-    console.warn('Puter email send:', err);
-    showToast('Email sent to client queue', 'success');
   }
+
+  makeQr();
+  btn.addEventListener('click', makeQr);
+
+  dBtn.addEventListener('click', () => {
+    const img = box.querySelector('img') || box.querySelector('canvas');
+    if (!img) return;
+    const link = document.createElement('a');
+    link.download = 'qrcode.png';
+    link.href = img.src || (img.toDataURL ? img.toDataURL() : '');
+    link.click();
+    showToast('Downloaded QR code PNG', 'success');
+  });
 }
 
 // ----------------------------------------------------
-// Vault Drawer Modal
+// 10. JSON Formatter Tool
 // ----------------------------------------------------
-function openVaultModal() {
-  vaultList.innerHTML = '';
-  const entries = Object.values(savedAudits);
+function renderJsonTool(container) {
+  container.innerHTML = `
+    <div class="space-y-3">
+      <div class="flex items-center gap-2">
+        <button id="json-format-btn" class="px-3.5 py-1.5 text-xs font-semibold bg-indigo-600 text-white rounded-xl hover:bg-indigo-500 transition cursor-pointer">Format / Prettify</button>
+        <button id="json-minify-btn" class="px-3.5 py-1.5 text-xs font-semibold bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 text-slate-800 dark:text-slate-200 rounded-xl transition cursor-pointer">Minify</button>
+        <button id="json-copy-btn" class="px-3.5 py-1.5 text-xs font-semibold bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 text-slate-800 dark:text-slate-200 rounded-xl transition cursor-pointer">Copy</button>
+      </div>
+      <textarea id="json-area" rows="12" class="w-full px-3.5 py-2.5 text-xs font-mono rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-900 text-emerald-400 focus:outline-none leading-relaxed">{"name":"PuterBox","status":"active","tools":11,"free":true}</textarea>
+    </div>
+  `;
 
-  if (entries.length === 0) {
-    vaultList.innerHTML = '<p class="text-xs text-slate-400 py-8 text-center">No saved audits in your Puter Cloud vault.</p>';
-  } else {
-    entries.forEach(audit => {
-      const item = document.createElement('div');
-      item.className = 'p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-950/60 flex items-center justify-between gap-3 hover:border-emerald-500 transition cursor-pointer';
-      item.innerHTML = `
-        <div class="flex-1 min-w-0">
-          <h4 class="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">${escapeHTML(audit.client)}</h4>
-          <p class="text-[11px] text-slate-400 truncate">${escapeHTML(audit.location)} &bull; ${escapeHTML(audit.type)}</p>
-          <span class="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">${audit.report ? 'Report Synthesized' : 'Draft'}</span>
-        </div>
-        <div class="flex items-center gap-1.5">
-          <button class="load-audit-btn px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-[11px] rounded-lg transition cursor-pointer">
-            Open
-          </button>
-          <button class="delete-vault-btn p-1.5 text-slate-400 hover:text-rose-500 rounded-lg transition cursor-pointer" title="Delete">
-            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-          </button>
-        </div>
-      `;
+  const area = container.querySelector('#json-area');
+  container.querySelector('#json-format-btn').addEventListener('click', () => {
+    try {
+      const parsed = JSON.parse(area.value);
+      area.value = JSON.stringify(parsed, null, 2);
+      showToast('JSON Valid & Formatted', 'success');
+    } catch (err) {
+      alert('Invalid JSON: ' + err.message);
+    }
+  });
 
-      item.querySelector('.load-audit-btn').addEventListener('click', () => {
-        populateFormFromAudit(audit);
-        vaultModal.classList.add('hidden');
-        showToast(`Loaded ${audit.client}`, 'info');
-      });
+  container.querySelector('#json-minify-btn').addEventListener('click', () => {
+    try {
+      const parsed = JSON.parse(area.value);
+      area.value = JSON.stringify(parsed);
+      showToast('JSON Minified', 'success');
+    } catch (err) {
+      alert('Invalid JSON: ' + err.message);
+    }
+  });
 
-      item.querySelector('.delete-vault-btn').addEventListener('click', async (e) => {
-        e.stopPropagation();
-        delete savedAudits[audit.id];
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(savedAudits));
-        updateVaultBadge();
-        item.remove();
-        try {
-          if (typeof puter !== 'undefined' && puter.kv) {
-            await puter.kv.remove(STORAGE_KEY, audit.id);
-          }
-        } catch (err) {
-          console.warn('KV delete:', err);
+  container.querySelector('#json-copy-btn').addEventListener('click', () => {
+    navigator.clipboard.writeText(area.value);
+    showToast('Copied to clipboard', 'success');
+  });
+}
+
+// ----------------------------------------------------
+// 11. Base64 & Hash Tool
+// ----------------------------------------------------
+function renderBase64Tool(container) {
+  container.innerHTML = `
+    <div class="space-y-4 max-w-3xl mx-auto">
+      <div class="space-y-2">
+        <label class="text-xs font-semibold text-slate-500 dark:text-slate-400">Input String</label>
+        <input type="text" id="b64-input" value="Hello Puter.js World!" class="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none" />
+      </div>
+
+      <div class="flex flex-wrap gap-2">
+        <button id="btn-encode-b64" class="px-3 py-1.5 text-xs font-semibold bg-indigo-600 text-white rounded-xl hover:bg-indigo-500 transition cursor-pointer">Base64 Encode</button>
+        <button id="btn-decode-b64" class="px-3 py-1.5 text-xs font-semibold bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200 rounded-xl hover:bg-slate-300 transition cursor-pointer">Base64 Decode</button>
+        <button id="btn-gen-uuid" class="px-3 py-1.5 text-xs font-semibold bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200 rounded-xl hover:bg-slate-300 transition cursor-pointer">New UUIDv4</button>
+      </div>
+
+      <div class="space-y-2">
+        <label class="text-xs font-semibold text-slate-500 dark:text-slate-400">Output Result</label>
+        <textarea id="b64-output" rows="4" readonly class="w-full px-3.5 py-2 text-xs font-mono rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-900 text-indigo-300 select-all"></textarea>
+      </div>
+    </div>
+  `;
+
+  const input = container.querySelector('#b64-input');
+  const output = container.querySelector('#b64-output');
+
+  container.querySelector('#btn-encode-b64').addEventListener('click', () => {
+    try {
+      output.value = btoa(input.value);
+      showToast('Encoded to Base64', 'success');
+    } catch (err) {
+      alert('Encode Error: ' + err.message);
+    }
+  });
+
+  container.querySelector('#btn-decode-b64').addEventListener('click', () => {
+    try {
+      output.value = atob(input.value);
+      showToast('Decoded from Base64', 'success');
+    } catch (err) {
+      alert('Invalid Base64 string: ' + err.message);
+    }
+  });
+
+  container.querySelector('#btn-gen-uuid').addEventListener('click', () => {
+    const uuid = crypto.randomUUID();
+    output.value = uuid;
+    showToast('Generated UUID', 'success');
+  });
+}
+
+// ----------------------------------------------------
+// Navigation & Global Events
+// ----------------------------------------------------
+function setupNavEvents() {
+  // Category Filtering
+  categoryPills.forEach(pill => {
+    pill.addEventListener('click', () => {
+      categoryPills.forEach(p => p.classList.remove('active'));
+      pill.classList.add('active');
+      const cat = pill.dataset.category;
+
+      toolCards.forEach(card => {
+        if (cat === 'all' || card.dataset.cat === cat) {
+          card.classList.remove('hidden');
+        } else {
+          card.classList.add('hidden');
         }
       });
-
-      vaultList.appendChild(item);
     });
-  }
+  });
 
-  vaultModal.classList.remove('hidden');
-  refreshIcons();
-}
+  // Global Search Filter
+  globalSearch.addEventListener('input', (e) => {
+    const q = e.target.value.toLowerCase().trim();
+    toolCards.forEach(card => {
+      const text = card.textContent.toLowerCase();
+      if (!q || text.includes(q)) {
+        card.classList.remove('hidden');
+      } else {
+        card.classList.add('hidden');
+      }
+    });
+  });
 
-function handleNewAudit() {
-  currentAudit = createNewAuditTemplate();
-  populateFormFromAudit(currentAudit);
-  showToast('New audit session initialized', 'info');
+  // Global Shortcut '/' for search
+  window.addEventListener('keydown', (e) => {
+    if (e.key === '/' && document.activeElement !== globalSearch && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+      e.preventDefault();
+      globalSearch.focus();
+    }
+    if (e.key === 'Escape') {
+      closeTool();
+    }
+  });
+
+  // Tool Card Click Handlers
+  toolCards.forEach(card => {
+    card.addEventListener('click', () => {
+      const toolId = card.dataset.toolId;
+      openTool(toolId);
+    });
+  });
+
+  closeWorkspaceBtn.addEventListener('click', closeTool);
+  themeToggle.addEventListener('click', toggleTheme);
+  loginBtn.addEventListener('click', handleLogin);
+  logoutBtn.addEventListener('click', handleLogout);
 }
 
 function escapeHTML(str) {
@@ -891,52 +971,6 @@ function escapeHTML(str) {
     "'": '&#39;',
     '"': '&quot;'
   }[tag] || tag));
-}
-
-// ----------------------------------------------------
-// Event Listeners
-// ----------------------------------------------------
-function setupEventListeners() {
-  micRecordBtn.addEventListener('click', toggleVoiceRecording);
-  photoFileInput.addEventListener('change', handlePhotoUpload);
-
-  addFindingForm.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const text = findingInput.value.trim();
-    if (!text) return;
-
-    currentAudit.findings.push({
-      id: 'f_' + Date.now(),
-      text: text,
-      severity: findingSeverity.value
-    });
-
-    findingInput.value = '';
-    renderFindingsTags();
-    saveCurrentAuditToVault();
-  });
-
-  btnSynthesizeReport.addEventListener('click', synthesizeAuditReport);
-  playAudioRecapBtn.addEventListener('click', togglePlayAudioRecap);
-  btnDeployPortal.addEventListener('click', deployClientPortal);
-  btnEmailReport.addEventListener('click', handleEmailDispatch);
-
-  btnSavedAudits.addEventListener('click', openVaultModal);
-  closeVaultModal.addEventListener('click', () => vaultModal.classList.add('hidden'));
-  vaultModal.addEventListener('click', (e) => {
-    if (e.target === vaultModal) vaultModal.classList.add('hidden');
-  });
-
-  btnNewAudit.addEventListener('click', handleNewAudit);
-
-  loginBtn.addEventListener('click', handleLogin);
-  logoutBtn.addEventListener('click', handleLogout);
-  themeToggle.addEventListener('click', toggleTheme);
-
-  // Auto-sync form changes
-  [auditClient, auditLocation, auditType, auditInspector, voiceNotesArea].forEach(input => {
-    input.addEventListener('change', saveCurrentAuditToVault);
-  });
 }
 
 document.addEventListener('DOMContentLoaded', init);

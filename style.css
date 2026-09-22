@@ -1,4 +1,4 @@
-/* FieldLog AI Stylesheet */
+/* PuterBox Stylesheet */
 
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
 
@@ -10,30 +10,50 @@ body {
   font-family: var(--font-sans);
 }
 
-/* Photo Thumbnail Hover */
-.photo-thumbnail {
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+/* Category Filter Pills */
+.category-pill.active {
+  background-color: #4f46e5;
+  color: white;
+  box-shadow: 0 1px 3px 0 rgba(79, 70, 229, 0.3);
 }
 
-.photo-thumbnail:hover {
+.category-pill:not(.active) {
+  background-color: transparent;
+  color: #64748b;
+}
+
+.dark .category-pill:not(.active) {
+  color: #94a3b8;
+}
+
+.category-pill:not(.active):hover {
+  background-color: #f1f5f9;
+  color: #0f172a;
+}
+
+.dark .category-pill:not(.active):hover {
+  background-color: #1e293b;
+  color: #f8fafc;
+}
+
+/* Tool Cards Hover */
+.tool-card {
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 0.2s ease;
+}
+
+.tool-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 16px -2px rgba(0, 0, 0, 0.1);
 }
 
-/* Findings Chips */
-.finding-chip {
-  animation: fadeIn 0.2s ease forwards;
+/* Hide scrollbar for category list */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 /* Toast Animations */
